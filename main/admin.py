@@ -1,0 +1,9 @@
+from django.contrib import admin
+from .models import Phone,PhoneReview, Phone_Parts, Brand, Color, Accessory
+
+admin.site.register(Phone)
+admin.site.register(PhoneReview)
+admin.site.register(Phone_Parts)
+admin.site.register(Brand)
+admin.site.register(Color)
+admin.site.register(Accessory)
