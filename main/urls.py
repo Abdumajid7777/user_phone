@@ -1,33 +1,32 @@
-from django.urls import path,include
-from smart_selects import urls as smart_selects_urls
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import AccessoryViewSet, BrandViewSet, ColorViewSet
 from .views import (
     register,
     login,
     logout,
-    PhoneListCreateView,
-    PhoneRetrieveUpdateDestroyAPIView,
-    PhonePartsListCreateView
+    AccessoryViewSet,
+    BrandViewSet,
+    ColorViewSet,
+    PhoneViewSet,
+    CartViewSet,
+    FavoriteListCreateView,
+    FavoriteDetailView,
 )
-
 router = DefaultRouter()
 router.register(r'accessories', AccessoryViewSet)
 router.register(r'brand', BrandViewSet)
 router.register(r'color', ColorViewSet)
+router.register(r'phone', PhoneViewSet, basename='phone')  
+router.register(r'cart', CartViewSet, basename='cart')
 
 urlpatterns = [
     path('', include(router.urls)),
     path('register/', register, name='register'),
     path('login/', login, name='login'),
     path('logout/', logout, name='logout'),
-    path('chaining/', include(smart_selects_urls)),
-    path('phone/', PhoneListCreateView.as_view(), name='phone-list-create'),
-    path('phone/<int:pk>/', PhoneRetrieveUpdateDestroyAPIView.as_view(), name='phone-detail'),
+    path('favorites/', FavoriteListCreateView.as_view(), name='favorite-list-create'),
+    path('favorites/<int:pk>/', FavoriteDetailView.as_view(), name='favorite-delete'),
 ]
-
-
-
 
 
 

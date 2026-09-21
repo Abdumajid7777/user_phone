@@ -1,19 +1,111 @@
 from django.shortcuts import render
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, action
 from rest_framework.response import Response
-from rest_framework import status, viewsets, filters, generics
-from .models import Phone, Phone_Parts, PhoneReview, Accessory, Brand, Color
-from .serializers import PhoneSerializer, RegisterSerializer, LoginSerializer, Phone_PartsSerialisers, CPhoneReviewSerializers, AccessorySerializer, BrandSerializer, ColorSerializer
+from rest_framework import status, viewsets, generics, permissions
+from .models import Phone, Phone_Parts, PhoneReview, Accessory, Brand, Color,  Cart, CartItem, Order, OrderItem, Favorite
+from .serializers import( PhoneSerializer, RegisterSerializer, LoginSerializer, Phone_PartsSerialisers, PhoneReviewSerializers, AccessorySerializer, BrandSerializer, ColorSerializer, CartSerializer, OrderSerializer, FavoriteSerializer) 
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.authtoken.models import Token
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.db.models import Avg
-from .filter import PhoneFilter, AccessoryFilter    
-from django_filters.rest_framework import DjangoFilterBackend
-from .models import Accessory
-from .serializers import AccessorySerializer
-from .filter import AccessoryFilter
+from .filter import PhoneFilter, AccessoryFilter, PhonePriceFilter
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
+from .permissions import IsOwnerOrReadOnly
+from .paginations import StandardResultsSetPagination
+
+class FavoriteViewSet(viewsets.ModelViewSet):
+    queryset = Favorite.objects.all()
+    serializer_class = FavoriteSerializer
+
+    def create(self, request, *args, **kwargs):
+        phones = request.data.get('phones', [])
+        accessories = request.data.get('accessories', [])
+
+        if phones or accessories:
+            created_favorites = []
+            
+            for phone_id in phones:
+                fav, created = Favorite.objects.get_or_create(
+                    user=request.user, phone_id=phone_id
+                )
+                if created:
+                    created_favorites.append(fav)
+
+            for accessory_id in accessories:
+                fav, created = Favorite.objects.get_or_create(
+                    user=request.user, accessory_id=accessory_id
+                )
+                if created:
+                    created_favorites.append(fav)
+
+            serializer = self.get_serializer(created_favorites, many=True)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        is_many = isinstance(request.data, list)
+        serializer = self.get_serializer(data=request.data, many=is_many)
+        serializer.is_valid(raise_exception=True)
+        
+        if is_many:
+            favorites = serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+class PhoneViewSet(viewsets.ModelViewSet):
+    queryset = Phone.objects.all()
+    serializer_class = PhoneSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['brand', 'color', 'condition']
+    search_fields = ['title']
+    ordering_fields = ['price', 'created_at']
+    ordering = ['-created_at'] 
+
+class FavoriteListCreateView(generics.ListCreateAPIView):
+    serializer_class = FavoriteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
+            return Favorite.objects.none()
+            
+        return Favorite.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+class FavoriteDetailView(generics.DestroyAPIView):
+
+    serializer_class = FavoriteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
+            return Favorite.objects.none()
+        return Favorite.objects.filter(user=self.request.user)
+    
+class CartViewSet(viewsets.ModelViewSet):
+    serializer_class = CartSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
+            return Cart.objects.none()
+        return Cart.objects.filter(user=self.request.user)
+    
+class AccessoryViewSet(viewsets.ModelViewSet):
+    queryset = Accessory.objects.all()
+    serializer_class = AccessorySerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = AccessoryFilter
+    search_fields = ['title', 'description', 'accessory_type']
+    ordering_fields = ['price', 'created_at']
+    permission_classes = [IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
 
 class AccessoryListView(generics.ListAPIView):
     queryset = Accessory.objects.all()
@@ -29,28 +121,6 @@ class ColorViewSet(viewsets.ModelViewSet):
     queryset = Color.objects.all()
     serializer_class = ColorSerializer
 
-class AccessoryViewSet(viewsets.ModelViewSet):
-    queryset = Accessory.objects.all()
-    serializer_class = AccessorySerializer
-    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
-    filterset_class = AccessoryFilter
-    search_fields = ['title', 'description']
-    ordering_fields = ['price', 'created_at']
-
-
-class PhoneListCreateView(ListCreateAPIView):
-    queryset = Phone.objects.annotate(avg_rating=Avg('reviews__rating'))
-    serializer_class = PhoneSerializer
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_class = PhoneFilter
-
-    search_fields = ['title']
-    ordering_fields = ['price', 'created_at', 'avg_rating']
-
-class PhoneRetrieveUpdateDestroyAPIView(RetrieveUpdateDestroyAPIView):
-    queryset = Phone.objects.all()
-    serializer_class = PhoneSerializer
-
 class PhonePartsListCreateView(ListCreateAPIView):
     queryset = Phone_Parts.objects.all()
     serializer_class = Phone_PartsSerialisers
@@ -62,27 +132,12 @@ class PhonePartsDetailView(RetrieveUpdateDestroyAPIView):
 
 class PhoneReviewListCreateView(ListCreateAPIView):
     queryset = PhoneReview.objects.all()
-    serializer_class = CPhoneReviewSerializers
+    serializer_class = PhoneReviewSerializers
 
 class PhoneReviewDetailView(RetrieveUpdateDestroyAPIView):
     queryset = PhoneReview.objects.all()
-    serializer_class = CPhoneReviewSerializers
-
-
-
-# class PhoneViewSet(viewsets.ModelViewSet):
-#     queryset = Phone.objects.all()
-#     serializer_class = PhoneSerializer
-#     filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
-#     filterset_class = PhoneFilter  
-#     search_fields = ['title']
-
-# class AccessoryViewSet(viewsets.ModelViewSet):
-#     queryset = Accessory.objects.all()
-#     serializer_class = AccessorySerializer
-#     filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
-#     filterset_class = AccessoryFilter 
-#     search_fields = ['title', 'description']
+    serializer_class = PhoneReviewSerializers
+# https://yummyanime.tv/7554-za-nebrezhnoj-molodoj-devushkoj-uhazhivaet-byvshij-zhenih-ee-sestry-m2.html
 
 
 @api_view(['POST'])
@@ -117,69 +172,3 @@ def register(request):
         }, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-
-
-
-
-
-# @api_view(['GET', 'POST'])
-# def phone_list(request):
-#     phones = Phone.objects.all()
-#     paginator = PageNumberPagination()
-#     paginator.page_size = 4
-#     page = paginator.paginate_queryset(phones, request)
-#     serializer = PhoneSerializer(page, many=True)
-#     return paginator.get_paginated_response(serializer.data)
-
-
-# @api_view(['GET'])
-# def phone_list_all(request):
-#     phones = Phone.objects.all()
-#     serializer = PhoneSerializer(phones, many=True)
-#     return Response(serializer.data)
-
-
-# @api_view(['POST'])
-# def phone_create(request):
-#     serializer = PhoneSerializer(data=request.data)
-#     if serializer.is_valid():
-#         serializer.save()
-#         return Response(serializer.data)
-#     return Response(serializer.errors)
-
-
-# @api_view(['PUT'])
-# def phone_update(request, pk):
-#     try:
-#         phone = Phone.objects.get(pk=pk)
-#     except Phone.DoesNotExist:
-#         return Response({'message': 'Telefon topilmadi'}, status=404)
-        
-#     serializer = PhoneSerializer(phone, data=request.data, partial=True)
-#     if serializer.is_valid():
-#         serializer.save()
-#         return Response(serializer.data)
-#     return Response(serializer.errors)
-
-
-# @api_view(['GET'])
-# def phone_detail(request, pk):
-#     try:
-#         phone = Phone.objects.get(pk=pk)
-#     except Phone.DoesNotExist:
-#         return Response({'message': 'Telefon topilmadi'}, status=404)
-        
-#     serializer = PhoneSerializer(phone)
-#     return Response(serializer.data)
-
-
-# @api_view(['DELETE'])
-# def phone_delete(request, pk):
-#     try:
-#         phone = Phone.objects.get(pk=pk)
-#     except Phone.DoesNotExist:
-#         return Response({'message': 'Telefon topilmadi'}, status=404)
-        
-#     phone.delete()
-#     return Response({'message': 'The phone was deleted'})

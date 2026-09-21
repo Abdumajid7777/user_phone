@@ -1,14 +1,82 @@
 from rest_framework import serializers
-from .models import Phone, Phone_Parts, PhoneReview, Brand, Color
+from .models import Phone, Phone_Parts, PhoneReview, Brand, Color, Accessory, Cart, CartItem, Order, OrderItem, Favorite
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
-from .models import Accessory, Phone
 
+class FavoriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Favorite
+        fields = ['id', 'user', 'phone', 'accessory', 'created_at']
+        read_only_fields = ['user', 'created_at']
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if instance.phone:
+            representation['phone'] = PhoneSerializer(instance.phone).data
+        if instance.accessory:
+            representation['accessory'] = AccessorySerializer(instance.accessory).data
+        return representation
+
+class PhoneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Phone
+        fields = '__all__'
 
 class AccessorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Accessory
-        fields = '__all__'
+        fields = ['id', 'accessory_type', 'price', 'description', 'image']
+
+# class FavoriteSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Favorite
+#         fields = ['id', 'user', 'phone', 'accessory', 'created_at']
+#         read_only_fields = ['user', 'created_at']
+
+#     def to_representation(self, instance):
+#         representation = super().to_representation(instance)
+#         if instance.phone:
+#             representation['phone'] = PhoneSerializer(instance.phone).data
+#         if instance.accessory:
+#             representation['accessory'] = AccessorySerializer(instance.accessory).data
+#         return representation
+
+class CartItemSerializer(serializers.ModelSerializer):
+    phone_title = serializers.ReadOnlyField(source='phone.title')
+    phone_price = serializers.ReadOnlyField(source='phone.price')
+    total_price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CartItem
+        fields = ['id', 'phone', 'phone_title', 'phone_price', 'quantity', 'total_price']
+
+    def get_total_price(self, obj):
+        return obj.phone.price * obj.quantity
+
+class CartSerializer(serializers.ModelSerializer):
+    items = CartItemSerializer(many=True, read_only=True)
+    total_cart_price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'user', 'items', 'total_cart_price']
+
+    def get_total_cart_price(self, obj):
+        return sum(item.phone.price * item.quantity for item in obj.items.all())
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    phone_title = serializers.ReadOnlyField(source='phone.title')
+
+    class Meta:
+        model = OrderItem
+        fields = ['id', 'phone', 'phone_title', 'price', 'quantity']
+
+class OrderSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ['id', 'user', 'status', 'total_price', 'created_at', 'items']
 
 class BrandSerializer(serializers.ModelSerializer):
     class Meta:
@@ -19,27 +87,6 @@ class ColorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Color
         fields = ['id', 'name']  
-
-class PhoneSerializer(serializers.ModelSerializer):
-
-    brand = serializers.StringRelatedField()
-    color = serializers.StringRelatedField()
-
-    class Meta:
-        model = Phone
-        fields = '__all__'
-
-
-    brand = serializers.SlugRelatedField(
-        slug_field='name',
-        queryset=Brand.objects.all()
-    )
-    color = serializers.SlugRelatedField(
-        slug_field='name',
-        queryset=Color.objects.all(),
-        many=True
-    )
-
 
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
@@ -58,7 +105,6 @@ class LoginSerializer(serializers.Serializer):
         data['user'] = user
         return data
 
-
 class RegisterSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     email = serializers.EmailField()
@@ -72,17 +118,13 @@ class RegisterSerializer(serializers.Serializer):
         )
         return user
 
-
-
-        
 class Phone_PartsSerialisers(serializers.ModelSerializer):
 
     class Meta:
         model = Phone_Parts
         fields = '__all__'
 
-
-class CPhoneReviewSerializers(serializers.ModelSerializer):
+class PhoneReviewSerializers(serializers.ModelSerializer):
     class Meta:
         model = PhoneReview
         fields = '__all__'

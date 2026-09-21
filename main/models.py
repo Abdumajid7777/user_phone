@@ -1,4 +1,7 @@
 from django.db import models
+from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 class Accessory(models.Model):
     ACCESSORY_TYPES = (
@@ -25,7 +28,6 @@ class Accessory(models.Model):
     def __str__(self):
         return self.accessory_type
     
-
 class Brand(models.Model):
     name = models.CharField(max_length=200, verbose_name="Бренд")
     year = models.IntegerField(null=True, blank=True, verbose_name="Год основания") 
@@ -47,13 +49,13 @@ class Color(models.Model):
         verbose_name="Цвет"
         verbose_name_plural="Цветы"
 
-
 class Phone(models.Model):
     CONDITION_CHOICES = (
         ('new', 'Новый'),
         ('used', 'Б/У'),
     )
 
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='phones', verbose_name='Муаллиф',null=True,blank=True)
     title = models.CharField(max_length=200, verbose_name="Название")
     price = models.IntegerField(verbose_name="Цена ($)")
     brand = models.ForeignKey('Brand', on_delete=models.CASCADE, verbose_name="Бренд", null=True, blank=True)
@@ -81,6 +83,8 @@ class Phone(models.Model):
 
     def __str__(self):
         return self.title
+
+    pass
 
 class Phone_Parts(models.Model):
     CATEGORY_CHOICES = (
@@ -119,8 +123,8 @@ class Phone_Parts(models.Model):
     def __str__(self):
         return self.title
 
-
 class PhoneReview(models.Model):
+
     PHONE_RATING = (
         (1, '⭐'),
         (2, '⭐⭐'),
@@ -145,3 +149,84 @@ class PhoneReview(models.Model):
 
     def __str__(self):
         return f'{self.phone}'
+
+class Cart(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='cart')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username}'s Cart"
+    
+    class Meta:
+        verbose_name = 'Корзина'
+        verbose_name_plural = 'Корзины'
+        ordering = ['-id']
+    
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
+    phone = models.ForeignKey(Phone, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        unique_together = ('cart', 'phone')
+
+    def __str__(self):
+        return f"{self.quantity} x {self.phone.title}"
+    
+    class Meta:
+            verbose_name = 'Товар в корзине'
+            verbose_name_plural = 'Товары в корзине'
+            unique_together = ('cart', 'phone')
+
+class Order(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'Кутилмоқда'),
+        ('processing', 'Ишланмоқда'),
+        ('completed', 'Якунланди'),
+        ('canceled', 'Бекор қилинди'),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
+    total_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Order #{self.id} - {self.user.username}"
+    
+    class Meta:
+        verbose_name = 'Заказ'
+        verbose_name_plural = 'Заказы'
+        ordering = ['-created_at']
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
+    phone = models.ForeignKey(Phone, on_delete=models.CASCADE)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    quantity = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.quantity} x {self.phone.title}"
+    
+    class Meta:
+        verbose_name = 'Товар в заказе'
+        verbose_name_plural = 'Товары в заказе'
+
+class Favorite(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorites')
+    phone = models.ForeignKey(Phone, on_delete=models.CASCADE, null=True, blank=True, related_name='favorited_by')
+    accessory = models.ForeignKey(Accessory, on_delete=models.CASCADE, null=True, blank=True, related_name='favorited_by')
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        verbose_name = 'Избранное'
+        verbose_name_plural = 'Избранное'
+        ordering = ['-created_at']
+        unique_together = [
+            ('user', 'phone'),
+            ('user', 'accessory'),
+        ]
+    def __str__(self):
+        item = self.phone if self.phone else self.accessory
+        return f"{self.user.username} - {item}"
+    
+
