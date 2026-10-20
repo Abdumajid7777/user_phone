@@ -52,21 +52,6 @@ class ReviewCreateListAPIView(generics.ListCreateAPIView):
 
 
 
-class StatisticsAPIView(APIView):
-    permission_classes = [permissions.IsAdminUser]
-
-    def get(self, request):
-        total_phones = Phone.objects.count()
-        total_orders = Order.objects.count()
-        total_sales = Order.objects.aggregate(sum_price=Sum('total_price'))['sum_price'] or 0
-
-        data = {
-            "total_phones": total_phones,
-            "total_orders": total_orders,
-            "total_sales": total_sales
-        }
-        return Response(data, status=status.HTTP_200_OK)
-
 
 class AccessoryViewSet(viewsets.ModelViewSet):
     queryset = Accessory.objects.all()
