@@ -9,7 +9,6 @@ class AccessoryFilter(django_filters.FilterSet):
         model = Accessory
         fields = ['accessory_type']
 
-
 class PhonePriceFilter(django_filters.FilterSet):
     min_price = django_filters.NumberFilter(field_name="price", lookup_expr='gte')
     max_price = django_filters.NumberFilter(field_name="price", lookup_expr='lte')

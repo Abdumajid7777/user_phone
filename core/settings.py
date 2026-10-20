@@ -25,7 +25,8 @@ SECRET_KEY = 'django-insecure-yi^_%_mf)dzgovpdij5ubgc755o290&vlzfs031xybnt!*wc8z
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+# ALLOWED_HOSTS = ["abdumajid777.pythonanywhere.com"]
+ALLOWED_HOSTS = ['phone.pythonanywhere.com', '.pythonanywhere.com', '127.0.0.1', 'localhost']
 
 
 # Application definition
@@ -85,7 +86,7 @@ TEMPLATES = [
     },
 ]
 
-REST_FRAMEWORK = {
+REST_FRAMEWORK = {  
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
     ],

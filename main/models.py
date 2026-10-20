@@ -1,232 +1,175 @@
-from django.db import models
-from django.contrib.auth.models import User
 from django.contrib.auth import get_user_model
+from django.core.validators import MaxValueValidator, MinValueValidator
+from django.db import models
+from django.utils import timezone
+
 User = get_user_model()
 
-class Accessory(models.Model):
-    ACCESSORY_TYPES = (
-        ('case', 'Чехол'),
-        ('glass', 'Защитное стекло'),
-        ('charger', 'Зарядное устройство'),
-        ('cable', 'Кабель / Шнур'),
-        ('headphones', 'Наушники'),
-        ('powerbank', 'Повербанк'),
-        ('other', 'Другое'),
-    )
-
-    accessory_type = models.CharField(max_length=50, choices=ACCESSORY_TYPES, verbose_name="Тип аксессуара")
-    price = models.IntegerField(verbose_name="Цена")
-    phone = models.ForeignKey('Phone', on_delete=models.CASCADE, related_name='accessories', verbose_name="Телефон", null=True, blank=True)
-    description = models.TextField(verbose_name="Описание", null=True, blank=True)
-    image = models.ImageField(upload_to='accessories/', verbose_name="Изображение", null=True, blank=True)
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications', verbose_name="Пользователь")
+    message = models.TextField(verbose_name="Сообщение")
+    is_read = models.BooleanField(default=False, verbose_name="Прочитано")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+
+    class Meta:
+        verbose_name = "Уведомление"
+        verbose_name_plural = "Уведомления"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.message[:20]}"
+
+
+class Coupon(models.Model):
+    code = models.CharField(max_length=50, unique=True, verbose_name="Код купона")
+    discount_percent = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(100)], verbose_name="Процент скидки")
+    valid_from = models.DateTimeField(verbose_name="Действует с")
+    valid_to = models.DateTimeField(verbose_name="Действует до")
+    active = models.BooleanField(default=True, verbose_name="Активен")
+
+    def is_valid(self):
+        now = timezone.now()
+        return self.active and self.valid_from <= now <= self.valid_to
+
+    class Meta:
+        verbose_name = "Купон"
+        verbose_name_plural = "Купоны"
+
+    def __str__(self):
+        return self.code
+
+    
+class Review(models.Model):
+    product = models.ForeignKey('Phone', on_delete=models.CASCADE, related_name='reviews', verbose_name="Телефон")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Пользователь")
+    rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)], verbose_name="Рейтинг")
+    comment = models.TextField(verbose_name="Комментарий")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+
+    class Meta:
+        verbose_name = "Отзыв"
+        verbose_name_plural = "Отзывы"
+        unique_together = ('product', 'user')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.product.name} ({self.rating} балл.)"
+
+
+class Accessory(models.Model):
+    name = models.CharField(max_length=100, verbose_name="Название")
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")
+    image = models.ImageField(upload_to='accessories/', verbose_name="Изображение", null=True, blank=True)
 
     class Meta:
         verbose_name = "Аксессуар"
         verbose_name_plural = "Аксессуары"
 
     def __str__(self):
-        return self.accessory_type
-    
+        return self.name
+
+
 class Brand(models.Model):
-    name = models.CharField(max_length=200, verbose_name="Бренд")
+    name = models.CharField(max_length=50, unique=True, verbose_name="Название бренда")
     year = models.IntegerField(null=True, blank=True, verbose_name="Год основания") 
 
     class Meta:
-        verbose_name="Бренд"
-        verbose_name_plural="Бренды"
+        verbose_name = "Бренд"
+        verbose_name_plural = "Бренды"
 
     def __str__(self):
         return self.name
+
 
 class Color(models.Model):
-    name = models.CharField(max_length=200, verbose_name="Цвет")
+    name = models.CharField(max_length=30, unique=True, verbose_name="Название цвета")
+
+    class Meta:
+        verbose_name = "Цвет"
+        verbose_name_plural = "Цвета"
 
     def __str__(self):
         return self.name
-    
-    class Meta:
-        verbose_name="Цвет"
-        verbose_name_plural="Цветы"
+
 
 class Phone(models.Model):
-    CONDITION_CHOICES = (
-        ('new', 'Новый'),
-        ('used', 'Б/У'),
-    )
-
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='phones', verbose_name='Муаллиф',null=True,blank=True)
-    title = models.CharField(max_length=200, verbose_name="Название")
-    price = models.IntegerField(verbose_name="Цена ($)")
-    brand = models.ForeignKey('Brand', on_delete=models.CASCADE, verbose_name="Бренд", null=True, blank=True)
-    color = models.ManyToManyField('Color', verbose_name="Цвет")
-    image = models.ImageField( verbose_name="Изображение", null=True, blank=True)
-    condition = models.CharField(max_length=20, choices=CONDITION_CHOICES, verbose_name="Состояние")
-    memory = models.CharField(max_length=50, verbose_name="Память", null=True, blank=True)
-    battery = models.IntegerField(verbose_name="Аккумулятор (mAh)", null=True, blank=True)
-    internet = models.CharField(max_length=50, verbose_name="Доступ в интернет", null=True, blank=True)
-    diagonal = models.FloatField(verbose_name="Диагональ", null=True, blank=True)
-    main_camera = models.CharField(max_length=50, verbose_name="Основная камера", null=True, blank=True)
+    name = models.CharField(max_length=100, verbose_name="Название телефона", default='')
+    description = models.TextField(verbose_name="Описание", default='', blank=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена", default=0)
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='phones', verbose_name="Бренд", null=True, blank=True)
+    color = models.ForeignKey(Color, on_delete=models.CASCADE, related_name='phones', verbose_name="Цвет", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
-    
 
-    @property
-    def average_rating(self):
-        reviews = self.reviews.all() 
-        if reviews.exists():
-            return sum(review.rating for review in reviews) / reviews.count()
-        return 0
-    
     class Meta:
         verbose_name = "Телефон"
         verbose_name_plural = "Телефоны"
 
     def __str__(self):
-        return self.title
+        return self.name
 
-    pass
-
-class Phone_Parts(models.Model):
-    CATEGORY_CHOICES = (
-        ('screen', 'Дисплей / Экран'),
-        ('battery', 'Аккумулятор'),
-        ('camera', 'Камера'),
-        ('body', 'Корпус / Задняя крышка'),
-        ('charging_port', 'Разъём зарядки'),
-        ('motherboard', 'Материнская плата'),
-        ('speaker', 'Динамик / Микрофон'),
-        ('glass', 'Защитное стекло / Стекло'),
-    )
-
-    BRAND_CHOICES = (
-        ('apple', 'Apple (iPhone)'),
-        ('samsung', 'Samsung'),
-        ('xiaomi', 'Xiaomi'),
-        ('honor', 'Honor'),
-        ('realme', 'Realme'),
-        ('huawei', 'Huawei'),
-        ('oppo', 'Oppo'),
-        ('vivo', 'Vivo'),
-        ('google', 'Google Pixel'),
-    )
-
-    title = models.CharField(max_length=100, verbose_name='Название запчасти')
-    part_type = models.CharField(max_length=50, choices=CATEGORY_CHOICES, verbose_name='Тип запчасти')
-    phone_brand = models.CharField(max_length=50, choices=BRAND_CHOICES, verbose_name='Марка телефона')
-    description = models.TextField(verbose_name='Описание')
-    price = models.IntegerField(verbose_name='Цена')
-
-    class Meta:
-        verbose_name = 'Запчасть для телефона'
-        verbose_name_plural = 'Запчасти для телефонов'
-
-    def __str__(self):
-        return self.title
-
-class PhoneReview(models.Model):
-
-    PHONE_RATING = (
-        (1, '⭐'),
-        (2, '⭐⭐'),
-        (3, '⭐⭐⭐'),
-        (4, '⭐⭐⭐⭐'),
-        (5, '⭐⭐⭐⭐⭐'),
-    )
-
-    phone = models.ForeignKey(
-        'Phone',
-        on_delete=models.CASCADE,
-        related_name='reviews'
-    )
-    text = models.TextField(verbose_name='Отзыв')
-    rating = models.IntegerField(choices=PHONE_RATING, verbose_name='Рейтинг')
-
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = 'Отзыв о телефоне'
-        verbose_name_plural = 'Отзывы о телефонах'
-
-    def __str__(self):
-        return f'{self.phone}'
 
 class Cart(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='cart')
-    created_at = models.DateTimeField(auto_now_add=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='cart', verbose_name="Пользователь")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+
+    class Meta:
+        verbose_name = "Корзина"
+        verbose_name_plural = "Корзины"
 
     def __str__(self):
-        return f"{self.user.username}'s Cart"
-    
-    class Meta:
-        verbose_name = 'Корзина'
-        verbose_name_plural = 'Корзины'
-        ordering = ['-id']
-    
+        return f"Корзина: {self.user.username}"
+
+
 class CartItem(models.Model):
-    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
-    phone = models.ForeignKey(Phone, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField(default=1)
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items', verbose_name="Корзина")
+    phone = models.ForeignKey(Phone, on_delete=models.CASCADE, verbose_name="Телефон")
+    quantity = models.PositiveIntegerField(default=1, verbose_name="Количество")
 
     class Meta:
+        verbose_name = "Элемент корзины"
+        verbose_name_plural = "Элементы корзины"
         unique_together = ('cart', 'phone')
 
     def __str__(self):
-        return f"{self.quantity} x {self.phone.title}"
-    
-    class Meta:
-            verbose_name = 'Товар в корзине'
-            verbose_name_plural = 'Товары в корзине'
-            unique_together = ('cart', 'phone')
+        return f"{self.phone.name} ({self.quantity} шт.)"
+
 
 class Order(models.Model):
-    STATUS_CHOICES = (
-        ('pending', 'Кутилмоқда'),
-        ('processing', 'Ишланмоқда'),
-        ('completed', 'Якунланди'),
-        ('canceled', 'Бекор қилинди'),
-    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders', verbose_name="Пользователь")
+    status = models.CharField(max_length=20, default='pending', verbose_name="Статус")
+    total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Общая сумма")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
-    total_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        verbose_name = "Заказ"
+        verbose_name_plural = "Заказы"
+        ordering = ['-created_at']
 
     def __str__(self):
-        return f"Order #{self.id} - {self.user.username}"
-    
-    class Meta:
-        verbose_name = 'Заказ'
-        verbose_name_plural = 'Заказы'
-        ordering = ['-created_at']
+        return f"Заказ #{self.id} - {self.user.username}"
+
 
 class OrderItem(models.Model):
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
-    phone = models.ForeignKey(Phone, on_delete=models.CASCADE)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    quantity = models.PositiveIntegerField(default=1)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items', verbose_name="Заказ")
+    phone = models.ForeignKey(Phone, on_delete=models.CASCADE, verbose_name="Телефон")
+    quantity = models.PositiveIntegerField(default=1, verbose_name="Количество")
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")
+
+    class Meta:
+        verbose_name = "Элемент заказа"
+        verbose_name_plural = "Элементы заказа"
 
     def __str__(self):
-        return f"{self.quantity} x {self.phone.title}"
-    
-    class Meta:
-        verbose_name = 'Товар в заказе'
-        verbose_name_plural = 'Товары в заказе'
+        return f"{self.phone.name} x {self.quantity}"
+
 
 class Favorite(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorites')
-    phone = models.ForeignKey(Phone, on_delete=models.CASCADE, null=True, blank=True, related_name='favorited_by')
-    accessory = models.ForeignKey(Accessory, on_delete=models.CASCADE, null=True, blank=True, related_name='favorited_by')
-    created_at = models.DateTimeField(auto_now_add=True)
-    class Meta:
-        verbose_name = 'Избранное'
-        verbose_name_plural = 'Избранное'
-        ordering = ['-created_at']
-        unique_together = [
-            ('user', 'phone'),
-            ('user', 'accessory'),
-        ]
-    def __str__(self):
-        item = self.phone if self.phone else self.accessory
-        return f"{self.user.username} - {item}"
-    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorites', verbose_name="Пользователь")
+    phone = models.ForeignKey(Phone, on_delete=models.CASCADE, verbose_name="Телефон")
 
+    class Meta:
+        verbose_name = "Избранное"
+        verbose_name_plural = "Избранные"
+        unique_together = ('user', 'phone')
+
+    def __str__(self):
+        return f"{self.user.username} -> {self.phone.name}"
