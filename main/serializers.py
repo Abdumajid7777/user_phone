@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from rest_framework import serializers
 from .models import (
     Phone, Accessory, Brand, Color, Cart, CartItem, 
-    Order, OrderItem, Favorite, Review, Notification, Coupon
+    Order, OrderItem, Favorite, Review, Notification
 )
 
 class PhoneSerializer(serializers.ModelSerializer):

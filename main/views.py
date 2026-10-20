@@ -8,7 +8,7 @@ from django.db.models import Sum
 
 from .models import (
     Phone, Accessory, Brand, Color, Cart,  
-    Order, Favorite, Review, Notification, Coupon
+    Order, Favorite, Review, Notification
 )
 from .serializers import (
     PhoneSerializer, AccessorySerializer, BrandSerializer, ColorSerializer,
@@ -46,18 +46,6 @@ class ReviewCreateListAPIView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
-
-
-class ApplyCouponAPIView(APIView):
-    def post(self, request):
-        code = request.data.get('code')
-        try:
-            coupon = Coupon.objects.get(code=code)
-            if not coupon.is_valid():
-                return Response({"error": "Купон амал қилиш муддати тугаган ёки фаол эмас."}, status=status.HTTP_400_BAD_REQUEST)
-            return Response({"message": "Купон муваффақиятли қўшилди!", "discount": coupon.discount_percent}, status=status.HTTP_200_OK)
-        except Coupon.DoesNotExist:
-            return Response({"error": "Бундай купон мавжуд эмас."}, status=status.HTTP_404_NOT_FOUND)
 
 
 class NotificationViewSet(viewsets.ModelViewSet):

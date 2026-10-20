@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     register,login,logout,AccessoryViewSet,BrandViewSet,
     ColorViewSet,PhoneViewSet,CartViewSet,FavoriteViewSet,OrderViewSet,
-    ReviewCreateListAPIView,ApplyCouponAPIView,NotificationViewSet,StatisticsAPIView
+    ReviewCreateListAPIView,NotificationViewSet,StatisticsAPIView
 )
 
 router = DefaultRouter()
@@ -22,6 +22,5 @@ urlpatterns = [
     path('login/', login, name='login'),
     path('logout/', logout, name='logout'),
     path('reviews/', ReviewCreateListAPIView.as_view(), name='review-list-create'),
-    path('coupons/apply/', ApplyCouponAPIView.as_view(), name='apply-coupon'),
     path('statistics/', StatisticsAPIView.as_view(), name='statistics'),
 ]

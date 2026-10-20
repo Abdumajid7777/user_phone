@@ -20,23 +20,23 @@ class Notification(models.Model):
         return f"{self.user.username} - {self.message[:20]}"
 
 
-class Coupon(models.Model):
-    code = models.CharField(max_length=50, unique=True, verbose_name="Код купона")
-    discount_percent = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(100)], verbose_name="Процент скидки")
-    valid_from = models.DateTimeField(verbose_name="Действует с")
-    valid_to = models.DateTimeField(verbose_name="Действует до")
-    active = models.BooleanField(default=True, verbose_name="Активен")
+# class Coupon(models.Model):
+#     code = models.CharField(max_length=50, unique=True, verbose_name="Код купона")
+#     discount_percent = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(100)], verbose_name="Процент скидки")
+#     valid_from = models.DateTimeField(verbose_name="Действует с")
+#     valid_to = models.DateTimeField(verbose_name="Действует до")
+#     active = models.BooleanField(default=True, verbose_name="Активен")
 
-    def is_valid(self):
-        now = timezone.now()
-        return self.active and self.valid_from <= now <= self.valid_to
+#     def is_valid(self):
+#         now = timezone.now()
+#         return self.active and self.valid_from <= now <= self.valid_to
 
-    class Meta:
-        verbose_name = "Купон"
-        verbose_name_plural = "Купоны"
+#     class Meta:
+#         verbose_name = "Купон"
+#         verbose_name_plural = "Купоны"
 
-    def __str__(self):
-        return self.code
+#     def __str__(self):
+#         return self.code
 
     
 class Review(models.Model):
