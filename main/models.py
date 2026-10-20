@@ -1,48 +1,15 @@
 from django.contrib.auth import get_user_model
-from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
 User = get_user_model()
 
-class Notification(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications', verbose_name="Пользователь")
-    message = models.TextField(verbose_name="Сообщение")
-    is_read = models.BooleanField(default=False, verbose_name="Прочитано")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
-
-    class Meta:
-        verbose_name = "Уведомление"
-        verbose_name_plural = "Уведомления"
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.user.username} - {self.message[:20]}"
-
-
-# class Coupon(models.Model):
-#     code = models.CharField(max_length=50, unique=True, verbose_name="Код купона")
-#     discount_percent = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(100)], verbose_name="Процент скидки")
-#     valid_from = models.DateTimeField(verbose_name="Действует с")
-#     valid_to = models.DateTimeField(verbose_name="Действует до")
-#     active = models.BooleanField(default=True, verbose_name="Активен")
-
-#     def is_valid(self):
-#         now = timezone.now()
-#         return self.active and self.valid_from <= now <= self.valid_to
-
-#     class Meta:
-#         verbose_name = "Купон"
-#         verbose_name_plural = "Купоны"
-
-#     def __str__(self):
-#         return self.code
 
     
 class Review(models.Model):
     product = models.ForeignKey('Phone', on_delete=models.CASCADE, related_name='reviews', verbose_name="Телефон")
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Пользователь")
-    rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)], verbose_name="Рейтинг")
+    rating = models.IntegerField( verbose_name="Рейтинг")
     comment = models.TextField(verbose_name="Комментарий")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
 
@@ -52,7 +19,7 @@ class Review(models.Model):
         unique_together = ('product', 'user')
 
     def __str__(self):
-        return f"{self.user.username} - {self.product.name} ({self.rating} балл.)"
+        return f"{self.user.username} - {self.product} ({self.rating} балл.)"
 
 
 class Accessory(models.Model):

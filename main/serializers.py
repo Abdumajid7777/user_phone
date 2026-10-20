@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from rest_framework import serializers
 from .models import (
     Phone, Accessory, Brand, Color, Cart, CartItem, 
-    Order, OrderItem, Favorite, Review, Notification
+    Order, OrderItem, Favorite, Review
 )
 
 class PhoneSerializer(serializers.ModelSerializer):
@@ -43,11 +43,6 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = ['id', 'user', 'status', 'total_price', 'created_at', 'items']
         read_only_fields = ['user', 'total_price']
-
-class NotificationsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Notification
-        fields = '__all__'
 
 class CartItemSerializer(serializers.ModelSerializer):
     class Meta:

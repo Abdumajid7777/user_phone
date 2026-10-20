@@ -8,11 +8,14 @@ from django.db.models import Sum
 
 from .models import (
     Phone, Accessory, Brand, Color, Cart,  
-    Order, Favorite, Review, Notification
+    
+    Order, Favorite, Review
 )
 from .serializers import (
     PhoneSerializer, AccessorySerializer, BrandSerializer, ColorSerializer,
-    ReviewSerializer, OrderSerializer, NotificationsSerializer,
+    
+    ReviewSerializer, OrderSerializer,
+    
     CartSerializer, FavoriteSerializer, LoginSerializer, RegisterSerializer
 )
 
@@ -47,13 +50,6 @@ class ReviewCreateListAPIView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-
-class NotificationViewSet(viewsets.ModelViewSet):
-    serializer_class = NotificationsSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user)
 
 
 class StatisticsAPIView(APIView):
@@ -120,7 +116,7 @@ def login(request):
     serializer = LoginSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.validated_data['user']
-        token, _ = Token.objects.get_or_create(user=user)
+        token = token.objects.get_or_create(user=user)
         return Response({
             'message': 'login successful',
             'token': token.key
